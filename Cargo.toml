@@ -1,0 +1,15 @@
+[package]
+name = "hid-capture"
+version = "1.0.0"
+edition = "2021"
+description = "外设抓包工具：按向导抓取键鼠 HID 原始数据，导出给 AI 分析"
+
+[dependencies]
+wry = "0.57.2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

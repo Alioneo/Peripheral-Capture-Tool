@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>外设抓包工具</title>
+<style>
+  :root{
+    --bg:#eef1ee;
+    --panel:#ffffff;
+    --ink:#101b15;
+    --sub:#5c6b61;
+    --line:#dfe5df;
+    --line-soft:#edf1ed;
+    --brand:#178a52;
+    --brand-dark:#0e6b3e;
+    --brand-soft:#e8f5ee;
+    --deep:#0d1f16;
+    --deep-2:#13291d;
+    --amber:#b7791f;
+    --amber-bg:#fdf6e7;
+    --amber-line:#f2e2bd;
+    --danger:#b23b3b;
+    --mono:"Cascadia Mono","Consolas","Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+    font-size:14px;line-height:1.6;overflow:hidden;
+  }
+  button{font-family:inherit;font-size:14px;cursor:pointer}
+  .app{display:grid;grid-template-columns:264px 1fr;height:100vh}
+
+  /* ---------- 左侧步骤栏 ---------- */
+  .side{background:var(--deep);color:#dbe7de;display:flex;flex-direction:column;padding:22px 16px 14px;overflow:hidden}
+  .brand{display:flex;gap:12px;align-items:center;padding:0 6px 20px}
+  .logo{width:40px;height:40px;border-radius:12px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;letter-spacing:1px;flex:none}
+  .brand h1{font-size:16px;margin:0;color:#fff;font-weight:600;letter-spacing:.5px}
+  .brand p{margin:1px 0 0;font-size:11px;color:#7f9488;letter-spacing:.4px}
+  .steps{display:flex;flex-direction:column;gap:2px;overflow:auto;padding-right:2px}
+  .step{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:10px;color:#a9bbb0;background:transparent;border:0;text-align:left;width:100%;transition:background .15s,color .15s}
+  .step:hover{background:rgba(255,255,255,.05);color:#e8f2ec}
+  .step.active{background:var(--deep-2);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+  .step .num{width:24px;height:24px;border-radius:50%;border:1px solid #3c5748;display:flex;align-items:center;justify-content:center;font-size:12px;color:#9db3a6;flex:none;font-variant-numeric:tabular-nums}
+  .step.active .num{background:var(--brand);border-color:var(--brand);color:#fff}
+  .step.done .num{background:#1c4a33;border-color:#2f7a52;color:#8fe0b4}
+  .step .label{flex:1;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .step .badge{font-size:10.5px;color:#7f9488;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .step.active .badge{color:#8fe0b4}
+  .side-foot{margin-top:auto;padding:14px 6px 0;font-size:11px;color:#63796c;line-height:1.8;border-top:1px solid rgba(255,255,255,.06)}
+
+  /* ---------- 右侧主区 ---------- */
+  .main{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+  .topbar{height:58px;flex:none;background:#fbfcfb;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 24px}
+  .chips{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;overflow:hidden}
+  .chip{font-size:12px;color:var(--sub);background:#f0f3f0;border:1px solid var(--line);border-radius:20px;padding:3px 11px;white-space:nowrap}
+  .chip.on{color:var(--brand-dark);background:var(--brand-soft);border-color:#c6e6d5}
+  .chip.live{color:#8a5a11;background:var(--amber-bg);border-color:var(--amber-line)}
+  .topbar .spacer{flex:1}
+  .scroll{flex:1;overflow:auto;padding:26px 28px 40px}
+  .panel{max-width:980px;margin:0 auto}
+  .statusbar{height:32px;flex:none;border-top:1px solid var(--line);background:#fbfcfb;display:flex;align-items:center;padding:0 24px;font-size:11.5px;color:#84948a;font-family:var(--mono)}
+
+  h2{font-size:22px;margin:0 0 4px;letter-spacing:.2px}
+  .sub{color:var(--sub);margin:0 0 20px;font-size:13.5px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin-bottom:16px}
+  .card h3{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .card h3 .mark{width:3px;height:15px;border-radius:2px;background:var(--brand);display:inline-block}
+  ol.guide{margin:0;padding:0;list-style:none;counter-reset:g}
+  ol.guide li{position:relative;padding:0 0 12px 34px;color:#26332c}
+  ol.guide li::before{counter-increment:g;content:counter(g);position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;background:#f1f5f1;border:1px solid var(--line);color:#50615a;font-size:12px;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+  ol.guide li:last-child{padding-bottom:0}
+  ol.guide b{color:var(--brand-dark)}
+  .tip{background:var(--amber-bg);border:1px solid var(--amber-line);color:#7a5714;border-radius:10px;padding:10px 13px;font-size:12.5px;margin-top:14px}
+  .tip b{color:#6a4a0d}
+
+  /* ---------- 抓包控制 ---------- */
+  .capture{display:grid;grid-template-columns:1fr 250px;gap:16px;align-items:stretch}
+  .timer-card{background:linear-gradient(180deg,#fbfdfb,#f6f9f6);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .timer-top{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--sub)}
+  .dot{width:7px;height:7px;border-radius:50%;background:#c3cec6;flex:none}
+  .dot.live{background:var(--brand);box-shadow:0 0 0 3px rgba(23,138,82,.14)}
+  .clock{font-family:var(--mono);font-size:46px;line-height:1.15;letter-spacing:1px;margin:6px 0 10px;font-variant-numeric:tabular-nums}
+  .bar{height:6px;background:#e7ede8;border-radius:99px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--brand);border-radius:99px;transition:width .25s linear}
+  .hint{font-size:12px;color:var(--sub);margin-top:10px;min-height:36px}
+  .actions{display:flex;flex-direction:column;gap:10px;justify-content:center}
+  .btn{border-radius:11px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:11px 18px;transition:background .15s,border-color .15s,transform .05s}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(14,107,62,.25)}
+  .btn.primary:hover{background:var(--brand-dark)}
+  .btn.ghost{background:#fff;color:#33443b}
+  .btn.ghost:hover{background:#f5f8f5}
+  .btn.tiny{padding:6px 12px;font-size:12.5px;border-radius:9px}
+  .btn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  .statline{font-size:12.5px;color:var(--sub);text-align:center}
+
+  .field label{display:block;font-size:12.5px;color:var(--sub);margin-bottom:7px}
+  textarea{width:100%;min-height:64px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--ink);background:#fcfdfc;outline:none}
+  textarea:focus{border-color:#9ccfb3;box-shadow:0 0 0 3px rgba(23,138,82,.10)}
+
+  /* ---------- 实时帧 ---------- */
+  .frames{font-family:var(--mono)}
+  .frames table{width:100%;border-collapse:collapse;font-size:12px}
+  .frames th{text-align:left;font-weight:500;color:#7b8b81;font-size:11px;padding:0 8px 6px;border-bottom:1px solid var(--line-soft)}
+  .frames td{padding:6px 8px;border-bottom:1px solid var(--line-soft);vertical-align:middle;white-space:nowrap}
+  .frames td.hex{white-space:normal;word-break:break-all;color:#1d2c24}
+  .frames .t{color:#84948a;width:70px}
+  .frames .dev{color:#4c5f55;width:170px;overflow:hidden;text-overflow:ellipsis}
+  .frames .empty{color:#9aa9a0;font-size:12.5px;padding:16px 8px;font-family:inherit}
+  .bchip{display:inline-block;margin-left:4px;padding:0 5px;border-radius:5px;background:var(--brand-soft);color:var(--brand-dark);font-size:10.5px;line-height:17px}
+
+  /* ---------- 设备列表 ---------- */
+  .devlist{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto;padding-right:2px}
+  .dev{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:#fcfdfc}
+  .dev:hover{border-color:#c9dbcd}
+  .dev input{width:16px;height:16px;accent-color:var(--brand);flex:none;cursor:pointer}
+  .dev .nm{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:330px}
+  .dev .meta{color:#84948a;font-size:11.5px;font-family:var(--mono);white-space:nowrap}
+  .dev .tags{margin-left:auto;display:flex;gap:5px;flex:none}
+  .tag{font-size:10.5px;padding:1px 7px;border-radius:99px;background:#f0f4f0;color:#5c6b61;border:1px solid #e2e9e2}
+  .dev.offline{opacity:.55}
+  .dev .off{font-size:10.5px;color:#98a69c;margin-left:auto}
+  .switch{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:13px;color:#33443b}
+  .switch input{width:16px;height:16px;accent-color:var(--brand)}
+  .switch small{color:#84948a}
+
+  /* ---------- 报告 ---------- */
+  .report-row{display:flex;gap:10px;align-items:center;margin-top:6px}
+  .pathbox{flex:1;background:#f6f9f6;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:12px;color:#33443b;word-break:break-all}
+  .files{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .files li{background:#fbfcfb;border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12.5px;display:flex;justify-content:space-between;color:#33443b}
+  .files li span{color:#98a69c;font-size:11px}
+  .emptybox{border:1px dashed #cfdacf;border-radius:12px;padding:22px;text-align:center;color:#84948a;font-size:13px;background:#fbfcfa}
+
+  /* ---------- 底部导航 ---------- */
+  .nav{display:flex;justify-content:space-between;margin-top:20px}
+  .nav .btn{min-width:130px}
+  .footnote{font-size:11.5px;color:#93a298;text-align:center;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">抓</div>
+      <div>
+        <h1>外设抓包工具</h1>
+        <p>HID CAPTURE · v1.0</p>
+      </div>
+    </div>
+    <nav class="steps" id="steps"></nav>
+    <div class="side-foot">
+      绿色版：不写注册表、不装服务<br>
+      结果保存在程序所在文件夹
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="chips" id="chips"><span class="chip">正在扫描设备…</span></div>
+      <div class="spacer"></div>
+      <button class="btn tiny" id="btnRescan">重新扫描设备</button>
+    </header>
+    <div class="scroll"><div class="panel" id="panel"></div></div>
+    <footer class="statusbar"><span id="logline">就绪</span></footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  const STEPS = [
+    {
+      id: 1, label: "选择设备", title: "选择你的键鼠设备",
+      sub: "先让键鼠以任意一种方式连上电脑，然后在下面勾选它。"
+    },
+    {
+      id: 2, label: "2.4G 接收器", title: "第 2 步 · 2.4G 接收器抓包",
+      sub: "记下 2.4G 模式下设备上报的原始数据，这是最常用的一组对照。",
+      plan: 120,
+      guide: [
+        "把鼠标/键盘的 2.4G 接收器插到电脑 USB 口。",
+        "打开设备电源，确认设备已经连上这台电脑（能动、能打字）。",
+        "点击下方【开始抓包】。",
+        "接下来 2 分钟，<b>持续移动鼠标</b>或<b>反复按键</b>，中间偶尔停顿 3~5 秒再继续。",
+        "倒计时结束后，点击【结束本步】。"
+      ],
+      tip: "移动/按键是为了让设备持续上报；偶尔停顿是为了对比“静止”和“运动”时的帧差异。",
+      after: "时间到：可以点【结束本步】了。"
+    },
+    {
+      id: 3, label: "有线 USB", title: "第 3 步 · 有线 USB 抓包",
+      sub: "有线模式往往和 2.4G 是不同的设备接口，需要单独抓一组。",
+      plan: 120,
+      guide: [
+        "拔掉 2.4G 接收器（或把设备切到有线模式）。",
+        "用 USB 数据线把设备直接连到电脑，确认能被识别。",
+        "点击【开始抓包】，持续移动/按键 2 分钟。",
+        "倒计时结束后，<b>直接拔掉 USB 线</b>，等 10 秒。",
+        "点击【结束本步】。"
+      ],
+      tip: "拔线前后的帧会记录“有线断开”的瞬间变化，对判断充电/连接状态非常有用。",
+      after: "时间到：请拔掉 USB 线，等 10 秒后点【结束本步】。"
+    },
+    {
+      id: 4, label: "蓝牙", title: "第 4 步 · 蓝牙抓包",
+      sub: "蓝牙模式常见于办公键鼠，上报格式与前两种可能不同。",
+      plan: 120,
+      guide: [
+        "拔掉 USB 线和 2.4G 接收器。",
+        "打开 Windows 设置 → 蓝牙和设备，配对并连接你的设备。",
+        "点击【开始抓包】，持续移动/按键 2 分钟。",
+        "倒计时结束后点【结束本步】。"
+      ],
+      tip: "蓝牙列表里找不到设备时，先按住设备上的配对键 3 秒进入配对模式。",
+      after: "时间到：可以点【结束本步】了。"
+    },
+    {
+      id: 5, label: "充电状态", title: "第 5 步 · 充电状态抓包",
+      sub: "记录“充电中 → 拔线 → 放电”的完整变化。",
+      plan: 120,
+      guide: [
+        "用 USB 线给设备充电（2.4G 连接时插充电线也可以）。",
+        "点击【开始抓包】。",
+        "保持充电 60 秒，观察设备指示灯/官方软件显示的充电状态。",
+        "拔掉充电线，再等 30 秒。",
+        "点击【结束本步】。"
+      ],
+      tip: "请在下方备注里写清楚：充电时指示灯什么颜色、官方软件显示“充电中/已充满”还是别的。",
+      after: "时间到：请拔掉充电线，等 30 秒后点【结束本步】。"
+    },
+    {
+      id: 6, label: "电量变化", title: "第 6 步 · 电量变化抓包",
+      sub: "补一条“不充电、正常使用”的基准数据。",
+      plan: 300,
+      guide: [
+        "保持设备正常连接（不充电），正常使用 5 分钟。",
+        "如果设备或官方软件能显示电量，记下开始和结束时的电量。",
+        "5 分钟后点【结束本步】（电量本来就没变化时可以提前结束）。"
+      ],
+      tip: "电量变化很慢，这一步抓不到下降也正常，主要是给 AI 提供时间段更长的样本。",
+      after: "时间到：可以点【结束本步】了。"
+    },
+    {
+      id: 7, label: "生成报告", title: "第 7 步 · 生成报告",
+      sub: "把抓到的东西整理成一个文件夹，直接发给 AI 就能分析。"
+    }
+  ];
+
+  const S = { st: null, step: 1, lastScan: -1, noteTimer: null, reportKey: "" };
+  const $ = (id) => document.getElementById(id);
+  const panel = $("panel");
+
+  function send(msg) {
+    try { window.ipc.postMessage(msg); } catch (e) { /* 浏览器预览时无 IPC */ }
+  }
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function fmt(sec) {
+    sec = Math.max(0, Math.round(sec));
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }
+  function meta(id) { return STEPS.find(x => x.id === id); }
+  function totalFrames() {
+    if (!S.st) return 0;
+    return Object.values(S.st.counts || {}).reduce((a, b) => a + b, 0) +
+      (S.st.phase ? S.st.phase.frames : 0);
+  }
+
+  // ---------- 左侧步骤栏 ----------
+  function buildSidebar() {
+    const nav = $("steps");
+    nav.innerHTML = STEPS.map(s =>
+      `<button class="step" data-id="${s.id}">
+         <span class="num">${s.id}</span>
+         <span class="label">${esc(s.label)}</span>
+         <span class="badge" data-badge="${s.id}"></span>
+       </button>`
+    ).join("");
+    nav.querySelectorAll(".step").forEach(b => {
+      b.addEventListener("click", () => go(Number(b.dataset.id)));
+    });
+  }
+
+  function paintSidebar() {
+    if (!S.st) return;
+    document.querySelectorAll(".step").forEach(b => {
+      const id = Number(b.dataset.id);
+      b.classList.toggle("active", id === S.step);
+      const done = (S.st.done || []).includes(id);
+      b.classList.toggle("done", done && id !== S.step);
+      const badge = b.querySelector("[data-badge]");
+      if (S.st.phase && S.st.phase.id === id) {
+        badge.textContent = "抓包中";
+      } else if (done) {
+        badge.textContent = (S.st.counts[id] || 0) + " 帧";
+      } else {
+        badge.textContent = "";
+      }
+    });
+  }
+
+  function paintChrome() {
+    if (!S.st) return;
+    const online = (S.st.devices || []).filter(d => d.online).length;
+    const chips = [];
+    chips.push(`<span class="chip">在线接口 ${online}</span>`);
+    chips.push(`<span class="chip">已勾选 ${(S.st.selected || []).length} 组</span>`);
+    chips.push(`<span class="chip ${S.st.auto ? "on" : ""}">自动模式 ${S.st.auto ? "开" : "关"}</span>`);
+    if (S.st.phase) {
+      chips.push(`<span class="chip live">正在抓包 · 第 ${S.st.phase.id} 步</span>`);
+    } else if (totalFrames() > 0) {
+      chips.push(`<span class="chip">已记录 ${totalFrames()} 帧</span>`);
+    }
+    $("chips").innerHTML = chips.join("");
+    const logs = S.st.log || [];
+    if (logs.length) $("logline").textContent = logs[logs.length - 1];
+  }
+
+  // ---------- 步骤内容 ----------
+  function go(id) {
+    S.step = id;
+    render();
+    paintSidebar();
+    paintChrome();
+    applyLive();
+  }
+
+  function render() {
+    if (S.step === 1) return renderStep1();
+    if (S.step === 7) return renderStep7();
+    return renderCapture(meta(S.step));
+  }
+
+  function renderStep1() {
+    panel.innerHTML = `
+      <h2>${esc(meta(1).title)}</h2>
+      <p class="sub">${esc(meta(1).sub)}</p>
+      <div class="card">
+        <h3><span class="mark"></span>发现 HID 设备</h3>
+        <div class="devlist" id="devList"><div class="emptybox">正在扫描设备…</div></div>
+        <label class="switch">
+          <input type="checkbox" id="autoChk" ${S.st && S.st.auto ? "checked" : ""}>
+          <span>自动包含键鼠类设备 <small>（推荐，后续换连接方式也会自动纳入）</small></span>
+        </label>
+        <div class="tip">
+          勾选属于你的设备可以缩小范围；<b>不确定就保持自动模式</b>，
+          工具会去重限流，不会卡顿。后续步骤里换了连接方式，新出现的接口也会自动抓。
+        </div>
+      </div>
+      <div class="nav">
+        <span></span>
+        <button class="btn primary" id="btnNext">下一步：2.4G 抓包</button>
+      </div>
+      <div class="footnote">设备名称来自设备固件，部分产品可能显示为“USB 输入设备”等通用名。</div>`;
+
+    const list = $("devList");
+    list.addEventListener("change", onSelectChange);
+    $("autoChk").addEventListener("change", onSelectChange);
+    $("btnNext").addEventListener("click", () => go(2));
+    paintDevices(true);
+  }
+
+  function paintDevices(force) {
+    const list = $("devList");
+    if (!list || !S.st) return;
+    const devices = S.st.devices || [];
+    if (!devices.length) {
+      list.innerHTML = `<div class="emptybox">没有发现 HID 设备。<br>请先插入接收器或用数据线连接设备，然后点右上角【重新扫描设备】。</div>`;
+      return;
+    }
+    const sig = devices.map(d => d.key + d.online + d.checked + d.ifaces + d.name).join("|");
+    if (!force && list.dataset.sig === sig) return;
+    list.dataset.sig = sig;
+    list.innerHTML = devices.map(d => `
+      <label class="dev ${d.online ? "" : "offline"}">
+        <input type="checkbox" data-key="${esc(d.key)}" ${d.checked ? "checked" : ""}>
+        <span class="nm" title="${esc(d.name)}">${esc(d.name)}</span>
+        <span class="meta">${esc(d.vid)}:${esc(d.pid)} · ${d.ifaces} 接口</span>
+        <span class="tags">${(d.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</span>
+        ${d.online ? "" : `<span class="off">离线</span>`}
+      </label>`).join("");
+    const auto = $("autoChk");
+    if (auto) auto.checked = !!S.st.auto;
+  }
+
+  function onSelectChange() {
+    const keys = Array.from(document.querySelectorAll("#devList input[type=checkbox]"))
+      .filter(c => c.checked).map(c => c.dataset.key).join(",");
+    const auto = $("autoChk") && $("autoChk").checked ? "1" : "0";
+    send(`select|${keys}|${auto}`);
+  }
+
+  function renderCapture(m) {
+    panel.innerHTML = `
+      <h2>${esc(m.title)}</h2>
+      <p class="sub">${esc(m.sub)}</p>
+      <div class="card">
+        <h3><span class="mark"></span>请按顺序操作</h3>
+        <ol class="guide">${m.guide.map(g => `<li>${g}</li>`).join("")}</ol>
+        <div class="tip">${m.tip}</div>
+      </div>
+      <div class="card">
+        <div class="capture">
+          <div class="timer-card">
+            <div class="timer-top"><span class="dot" id="dot"></span><span id="capState">尚未开始</span></div>
+            <div class="clock" id="clock">${fmt(m.plan)}</div>
+            <div class="bar"><i id="bar"></i></div>
+            <div class="hint" id="capHint">点击右侧【开始抓包】后开始计时。</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="btnStart">开始抓包</button>
+            <button class="btn ghost" id="btnStop" disabled>结束本步</button>
+            <div class="statline" id="statline">已记录 0 帧</div>
+          </div>
+        </div>
+      </div>
+      <div class="card field">
+        <label for="note">本步备注（可选，会写进报告，帮助 AI 判断）</label>
+        <textarea id="note" placeholder="例如：此时鼠标指示灯为红色，官方软件显示 85%、充电中…"></textarea>
+      </div>
+      <div class="card frames">
+        <h3><span class="mark"></span>实时数据（最近 6 帧）</h3>
+        <table>
+          <thead><tr><th class="t">时间</th><th class="dev">接口</th><th>数据（十六进制）</th></tr></thead>
+          <tbody id="framesBody"></tbody>
+        </table>
+        <div class="empty" id="framesEmpty">等待数据…</div>
+      </div>
+      <div class="nav">
+        <button class="btn ghost" id="btnPrev">上一步</button>
+        <button class="btn ghost" id="btnNext">下一步</button>
+      </div>`;
+
+    $("btnStart").addEventListener("click", () => send(`start|${m.id}|${m.plan}`));
+    $("btnStop").addEventListener("click", () => send(`stop|${m.id}`));
+    $("btnPrev").addEventListener("click", () => go(m.id - 1));
+    $("btnNext").addEventListener("click", () => go(m.id + 1));
+    const note = $("note");
+    note.value = (S.st && S.st.notes && S.st.notes[m.id]) || "";
+    note.addEventListener("input", () => {
+      clearTimeout(S.noteTimer);
+      const val = note.value;
+      S.noteTimer = setTimeout(() => send(`note|${m.id}|${encodeURIComponent(val)}`), 400);
+    });
+    paintFrames();
+  }
+
+  function renderStep7() {
+    panel.innerHTML = `
+      <h2>${esc(meta(7).title)}</h2>
+      <p class="sub">${esc(meta(7).sub)}</p>
+      <div class="card">
+        <h3><span class="mark"></span>生成分析包</h3>
+        <p style="margin:0 0 14px;color:#4c5f55;font-size:13.5px">
+          会生成 <b>frames.jsonl</b>（逐帧原始数据）、<b>设备与字段分析.md</b>、
+          <b>给AI的说明.md</b>、<b>设备列表.txt</b> 四个文件。
+        </p>
+        <div class="report-row">
+          <button class="btn primary" id="btnReport">生成报告</button>
+          <span class="statline" id="reportHint">已抓取 ${totalFrames()} 帧</span>
+        </div>
+        <div id="reportBox"></div>
+      </div>
+      <div class="card">
+        <h3><span class="mark"></span>下一步怎么做</h3>
+        <ol class="guide">
+          <li>点【生成报告】，等结果文件夹出现在下方。</li>
+          <li>点【打开结果文件夹】，确认里面有 4 个文件。</li>
+          <li>把整个文件夹压缩成 zip，发给 AI，并告诉它设备型号。</li>
+          <li>AI 会根据帧结构给出电量字段、充电状态字段和解析代码。</li>
+        </ol>
+      </div>
+      <div class="nav">
+        <button class="btn ghost" id="btnPrev">上一步</button>
+        <span></span>
+      </div>`;
+    $("btnReport").addEventListener("click", () => send("report"));
+    $("btnPrev").addEventListener("click", () => go(6));
+    paintReport(true);
+  }
+
+  function paintReport(force) {
+    const box = $("reportBox");
+    if (!box || !S.st) return;
+    const hint = $("reportHint");
+    if (hint) hint.textContent = `已抓取 ${totalFrames()} 帧`;
+    const key = S.st.report ? "1" + S.st.output : "0";
+    if (!force && S.reportKey === key) return;
+    S.reportKey = key;
+    if (!S.st.report) {
+      box.innerHTML = totalFrames() === 0
+        ? `<div class="emptybox" style="margin-top:14px">还没有抓到数据，请先回到第 2~6 步完成至少一步抓包。</div>`
+        : `<div class="emptybox" style="margin-top:14px">点上方【生成报告】按钮开始整理数据。</div>`;
+      return;
+    }
+    box.innerHTML = `
+      <div class="pathbox" style="margin-top:16px">${esc(S.st.output)}</div>
+      <div class="report-row" style="margin-top:10px">
+        <button class="btn ghost" id="btnOpen">打开结果文件夹</button>
+      </div>
+      <ul class="files">
+        ${(S.st.files || []).map(f => `<li>${esc(f)}<span>已生成</span></li>`).join("")}
+      </ul>`;
+    $("btnOpen").addEventListener("click", () => send("open|" + encodeURIComponent(S.st.output)));
+  }
+
+  // ---------- 实时刷新 ----------
+  function applyLive() {
+    if (!S.st) return;
+    if (S.step === 1) {
+      paintDevices(false);
+      const auto = $("autoChk");
+      if (auto && document.activeElement !== auto) auto.checked = !!S.st.auto;
+      return;
+    }
+    if (S.step === 7) { paintReport(false); return; }
+    paintCapture(meta(S.step));
+    paintFrames();
+  }
+
+  function paintCapture(m) {
+    const st = S.st;
+    const active = st.phase && st.phase.id === m.id ? st.phase : null;
+    const other = st.phase && st.phase.id !== m.id ? st.phase : null;
+    const done = (st.done || []).includes(m.id);
+    const elapsed = active ? active.elapsed : 0;
+    const remain = Math.max(0, m.plan - elapsed);
+
+    const clock = $("clock");
+    if (!clock) return;
+    clock.textContent = fmt(active ? remain : (done ? 0 : m.plan));
+    $("bar").style.width = (active ? Math.min(100, elapsed / m.plan * 100) : 0) + "%";
+    $("dot").className = "dot" + (active && remain > 0 ? " live" : "");
+
+    let stateText = "尚未开始";
+    if (active) stateText = remain > 0 ? "抓包中" : "时间到";
+    else if (done) stateText = "本步已结束";
+    $("capState").textContent = stateText;
+
+    let hint = "点击右侧【开始抓包】后开始计时。";
+    if (active) hint = remain > 0 ? "正在记录，请保持操作…" : m.after;
+    else if (other) hint = `第 ${other.id} 步正在抓包，请先结束它。`;
+    else if (done) hint = "本步数据已保存，可以重抓或继续下一步。";
+    $("capHint").textContent = hint;
+
+    $("btnStart").disabled = !!other || !!active;
+    $("btnStop").disabled = !active;
+    const n = active ? active.frames : (st.counts[m.id] || 0);
+    $("statline").textContent = `已记录 ${n} 帧`;
+
+    const note = $("note");
+    if (note && document.activeElement !== note) {
+      const saved = (st.notes && st.notes[m.id]) || "";
+      if (saved !== note.value) note.value = saved;
+    }
+  }
+
+  function paintFrames() {
+    const body = $("framesBody");
+    if (!body) return;
+    const frames = S.st.frames || [];
+    const empty = $("framesEmpty");
+    if (!frames.length) {
+      body.innerHTML = "";
+      if (empty) empty.style.display = "";
+      return;
+    }
+    if (empty) empty.style.display = "none";
+    body.innerHTML = frames.map(f => {
+      const parts = f.hex.split(" ");
+      const chips = [];
+      for (let i = 1; i < parts.length && chips.length < 4; i++) {
+        const v = parseInt(parts[i], 16);
+        if (v >= 1 && v <= 100) chips.push(`b${i}=${v}`);
+      }
+      return `<tr>
+        <td class="t">${f.t.toFixed(1)}s</td>
+        <td class="dev">${esc(f.label)}</td>
+        <td class="hex">${esc(f.hex)}${chips.map(c => `<span class="bchip">${esc(c)}</span>`).join("")}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ---------- 宿主状态入口 ----------
+  window.__state = function (st) {
+    S.st = st;
+    paintChrome();
+    paintSidebar();
+    applyLive();
+  };
+
+  $("btnRescan").addEventListener("click", () => send("rescan"));
+  buildSidebar();
+  render();
+  send("ready");
+})();
+</script>
+</body>
+</html>
