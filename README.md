@@ -28,7 +28,7 @@
 
 ## 下载使用
 
-前往 [Releases](https://github.com/Alioneo/Peripheral-Capture-Tool/releases/latest) 下载 `外设抓包工具_v1.0.0_绿色版.zip`，解压后双击 `外设抓包工具.exe`。
+前往 [Releases](https://github.com/Alioneo/Peripheral-Capture-Tool/releases/latest) 下载 `Peripheral-Capture-Tool_v1.0.0_win64.zip`，解压后双击 `外设抓包工具.exe`。
 
 系统要求：Windows 10 / 11 64 位，带 WebView2 运行时（Win11 自带；Win10 缺失时安装 Microsoft Edge WebView2 Runtime）。
 
